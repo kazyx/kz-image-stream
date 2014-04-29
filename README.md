@@ -9,7 +9,9 @@ KzLiveview
  git clone git@github.com:kazyx/KzLiveview.git
  ```
 
-2. Open /Project/KzLiveview.sln by Visual Studio 2012 for WP.
+2. Open csproj file by Visual Studio.
+ - /Project/KzLiveview.csproj for Windows Phone 8.
+ - /Project/KzLiveviewUniversal.csproj for Universal Windows application.
 
 ##Get JPEG frame data from Liveview stream.
 1. Obtain URL of liveview image stream by calling startLiveview API.
