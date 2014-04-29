@@ -67,7 +67,8 @@ namespace Kazyx.Liveview
         /// </summary>
         /// <param name="url">URL to get liveview stream.</param>
         /// <param name="timeout">Timeout to give up establishing connection.</param>
-        public async void OpenConnection(string url, TimeSpan? timeout = null)
+        /// <returns>Connection status as a result. Connected or failed.</returns>
+        public async Task<bool> OpenConnection(string url, TimeSpan? timeout = null)
         {
             Log("OpenConnection");
             if (url == null)
@@ -77,18 +78,20 @@ namespace Kazyx.Liveview
 
             if (state != State.Closed)
             {
-                return;
+                return true;
             }
+
+            var tcs = new TaskCompletionSource<bool>();
 
             state = State.TryingConnection;
 
             var to = (timeout == null) ? TimeSpan.FromMilliseconds(DEFAULT_REQUEST_TIMEOUT) : timeout;
 
-            var Request = HttpWebRequest.Create(new Uri(url)) as HttpWebRequest;
-            Request.Method = "GET";
-            Request.AllowReadStreamBuffering = false;
+            var request = HttpWebRequest.Create(new Uri(url)) as HttpWebRequest;
+            request.Method = "GET";
+            request.AllowReadStreamBuffering = false;
 
-            var JpegStreamHandler = new AsyncCallback((ar) =>
+            var streamHandler = new AsyncCallback((ar) =>
             {
                 state = State.Connected;
                 if (core != null)
@@ -98,12 +101,13 @@ namespace Kazyx.Liveview
                 try
                 {
                     var req = ar.AsyncState as HttpWebRequest;
-                    using (var Response = req.EndGetResponse(ar) as HttpWebResponse)
+                    using (var response = req.EndGetResponse(ar) as HttpWebResponse)
                     {
-                        if (Response.StatusCode == HttpStatusCode.OK)
+                        if (response.StatusCode == HttpStatusCode.OK)
                         {
                             Log("Connected Jpeg stream");
-                            using (var str = Response.GetResponseStream())
+                            tcs.TrySetResult(true);
+                            using (var str = response.GetResponseStream())
                             {
                                 core = new JpegStreamAnalizer(str);
                                 core.RunFpsDetector();
@@ -123,11 +127,16 @@ namespace Kazyx.Liveview
                                 Log("End of reading loop");
                             }
                         }
+                        else
+                        {
+                            tcs.TrySetResult(false);
+                        }
                     }
                 }
                 catch (WebException)
                 {
                     Log("WebException inside StreamingHandler.");
+                    tcs.TrySetResult(false);
                 }
                 catch (ObjectDisposedException)
                 {
@@ -145,13 +154,20 @@ namespace Kazyx.Liveview
                 }
             });
 
-            Request.BeginGetResponse(JpegStreamHandler, Request);
+            request.BeginGetResponse(streamHandler, request);
 
-            await Task.Delay((int)to.Value.TotalMilliseconds);
+            StartTimer((int)to.Value.TotalMilliseconds, request);
+
+            return await tcs.Task;
+        }
+
+        private async void StartTimer(int to, HttpWebRequest request)
+        {
+            await Task.Delay(to);
             if (state == State.TryingConnection)
             {
                 Log("Open request timeout: aborting request.");
-                Request.Abort();
+                request.Abort();
             }
         }
 
