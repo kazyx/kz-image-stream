@@ -8,11 +8,11 @@
     <ProjectGuid>{8DD38A89-02AA-4009-A476-FE4F7E1C2344}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>KzLiveviewUniversal</RootNamespace>
-    <AssemblyName>KzLiveviewUniversal</AssemblyName>
+    <RootNamespace>Kazyx.Liveview</RootNamespace>
+    <AssemblyName>KzLiveview</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <TargetFrameworkProfile>Profile32</TargetFrameworkProfile>
-    <DefaultLanguage>ja-JP</DefaultLanguage>
+    <DefaultLanguage>en-US</DefaultLanguage>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{786C830F-07A1-408B-BD7F-6EE04809D6DB};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
   </PropertyGroup>
