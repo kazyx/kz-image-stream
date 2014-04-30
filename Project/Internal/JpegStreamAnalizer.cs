@@ -125,6 +125,13 @@ namespace Kazyx.Liveview
                         Log("Caught ObjectDisposedException while reading bytes: forcefully disposed.");
                         throw new IOException("Stream forcefully disposed");
                     }
+                    catch (Exception e)
+                    {
+                        DisposeResouces();
+                        Log("Caught unknown exception while reading bytes: " + e.StackTrace);
+                        throw new IOException("Caught " + e.GetType() + ". Finish reading.");
+                    }
+
                     if (read <= 0)
                     {
                         DisposeResouces();
