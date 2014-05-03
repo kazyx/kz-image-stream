@@ -52,7 +52,8 @@ namespace Kazyx.Liveview
             if (!IsOpen)
             {
                 Log("StreamAnalizer is already disposed.");
-                throw new ObjectDisposedException("StreamAnalizer is already disposed.");
+                //throw new ObjectDisposedException("StreamAnalizer is already disposed.");
+                return;
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(FPS_INTERVAL));
