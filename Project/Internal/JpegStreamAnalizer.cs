@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace Kazyx.Liveview
 {
-    internal class JpegStreamAnalizer
+    internal class JpegStreamAnalizer : IDisposable
     {
         private bool _IsOpen = true;
         public bool IsOpen
@@ -32,19 +32,21 @@ namespace Kazyx.Liveview
             this.str = str;
         }
 
-        internal void Dispose()
+        public void Dispose()
         {
             IsOpen = false;
-        }
-
-        private void DisposeResouces()
-        {
             if (str != null)
             {
-                str.Dispose();
+                try
+                {
+                    str.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                    Log("This object is already disposed");
+                }
             }
             str = null;
-            Dispose();
         }
 
         internal async void RunFpsDetector()
@@ -52,7 +54,8 @@ namespace Kazyx.Liveview
             if (!IsOpen)
             {
                 Log("StreamAnalizer is already disposed.");
-                throw new ObjectDisposedException("StreamAnalizer is already disposed.");
+                //throw new ObjectDisposedException("StreamAnalizer is already disposed.");
+                return;
             }
 
             await Task.Delay(TimeSpan.FromMilliseconds(FPS_INTERVAL));
@@ -70,7 +73,7 @@ namespace Kazyx.Liveview
             var CHeader = BlockingRead(CHeaderLength);
             if (CHeader[0] != (byte)0xFF || CHeader[1] != (byte)0x01) // Check fixed data
             {
-                DisposeResouces();
+                Dispose();
                 Log("Unexpected common header");
                 throw new IOException("Unexpected common header");
             }
@@ -78,7 +81,7 @@ namespace Kazyx.Liveview
             var PHeader = BlockingRead(PHeaderLength);
             if (PHeader[0] != (byte)0x24 || PHeader[1] != (byte)0x35 || PHeader[2] != (byte)0x68 || PHeader[3] != (byte)0x79) // Check fixed data
             {
-                DisposeResouces();
+                Dispose();
                 Log("Unexpected payload header");
                 throw new IOException("Unexpected payload header");
             }
@@ -111,7 +114,7 @@ namespace Kazyx.Liveview
                     var source = str;
                     if (source == null)
                     {
-                        DisposeResouces();
+                        Dispose();
                         Log("Cannot access Stream. Finish reading.");
                         throw new IOException("Cannot access Stream. Finish reading.");
                     }
@@ -121,13 +124,20 @@ namespace Kazyx.Liveview
                     }
                     catch (ObjectDisposedException)
                     {
-                        DisposeResouces();
+                        Dispose();
                         Log("Caught ObjectDisposedException while reading bytes: forcefully disposed.");
                         throw new IOException("Stream forcefully disposed");
                     }
+                    catch (Exception e)
+                    {
+                        Dispose();
+                        Log("Caught unknown exception while reading bytes: " + e.StackTrace);
+                        throw new IOException("Caught " + e.GetType() + ". Finish reading.");
+                    }
+
                     if (read <= 0)
                     {
-                        DisposeResouces();
+                        Dispose();
                         Log("Detected end of stream.");
                         throw new IOException("End of stream");
                     }
