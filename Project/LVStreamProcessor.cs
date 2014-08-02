@@ -78,7 +78,6 @@ namespace Kazyx.Liveview
 
             var to = (timeout == null) ? TimeSpan.FromMilliseconds(DEFAULT_REQUEST_TIMEOUT) : timeout;
 
-
             var request = HttpWebRequest.Create(new Uri(url)) as HttpWebRequest;
             request.Method = "GET";
             request.AllowReadStreamBuffering = false;
