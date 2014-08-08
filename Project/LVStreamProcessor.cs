@@ -56,13 +56,13 @@ namespace Kazyx.Liveview
         /// <summary>
         /// Open stream connection for Liveview.
         /// </summary>
-        /// <param name="url">URL to get liveview stream.</param>
+        /// <param name="uri">URL to get liveview stream.</param>
         /// <param name="timeout">Timeout to give up establishing connection.</param>
         /// <returns>Connection status as a result. Connected or failed.</returns>
-        public async Task<bool> OpenConnection(string url, TimeSpan? timeout = null)
+        public async Task<bool> OpenConnection(Uri uri, TimeSpan? timeout = null)
         {
             Log("OpenConnection");
-            if (url == null)
+            if (uri == null)
             {
                 throw new ArgumentNullException();
             }
@@ -78,10 +78,10 @@ namespace Kazyx.Liveview
 
             var to = (timeout == null) ? TimeSpan.FromMilliseconds(DEFAULT_REQUEST_TIMEOUT) : timeout;
 
-            var request = HttpWebRequest.Create(new Uri(url)) as HttpWebRequest;
+            var request = HttpWebRequest.Create(uri) as HttpWebRequest;
             request.Method = "GET";
             request.AllowReadStreamBuffering = false;
-            request.Headers["Connection"] = "close";
+            // request.Headers["Connection"] = "close";
 
             var streamHandler = new AsyncCallback((ar) =>
             {
