@@ -8,8 +8,8 @@
     <ProjectGuid>{8DD38A89-02AA-4009-A476-FE4F7E1C2344}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Kazyx.Liveview</RootNamespace>
-    <AssemblyName>KzLiveview</AssemblyName>
+    <RootNamespace>Kazyx.ImageStream</RootNamespace>
+    <AssemblyName>KzImageStream</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <TargetFrameworkProfile>Profile32</TargetFrameworkProfile>
     <DefaultLanguage>en-US</DefaultLanguage>
@@ -41,9 +41,12 @@
     <TargetPlatform Include="Windows, Version=8.1" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Internal\JpegStreamAnalizer.cs" />
-    <Compile Include="LvStreamProcessor.cs" />
+    <Compile Include="Internal\StreamAnalizer.cs" />
+    <Compile Include="Internal\StreamHelper.cs" />
+    <Compile Include="JpegPacket.cs" />
+    <Compile Include="PlaybackInfoPacket.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="StreamProcessor.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

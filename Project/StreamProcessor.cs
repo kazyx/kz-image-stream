@@ -4,38 +4,20 @@ using System.IO;
 using System.Net;
 using System.Threading.Tasks;
 
-namespace Kazyx.Liveview
+namespace Kazyx.ImageStream
 {
-    public class LvStreamProcessor
+    public class StreamProcessor
     {
-        /// <summary>
-        /// Connection status of this LVProcessor.
-        /// </summary>
-        public bool IsOpen
-        {
-            get
-            {
-                return state == State.Connected;
-            }
-        }
-
-        public bool IsProcessing
-        {
-            get
-            {
-                return state != State.Closed;
-            }
-        }
-
         private const int DEFAULT_REQUEST_TIMEOUT = 5000;
 
-        private State state = State.Closed;
+        private ConnectionState state = ConnectionState.Closed;
+
+        public ConnectionState ConnectionState
+        {
+            get { return state; }
+        }
 
         public event EventHandler Closed;
-
-        public delegate void LiveviewStreamHandler(object sender, JpegEventArgs e);
-
-        public event LiveviewStreamHandler JpegRetrieved;
 
         protected void OnClosed(EventArgs e)
         {
@@ -45,11 +27,27 @@ namespace Kazyx.Liveview
             }
         }
 
+        public delegate void JpegPacketHandler(object sender, JpegEventArgs e);
+
+        public event JpegPacketHandler JpegRetrieved;
+
         protected void OnJpegRetrieved(JpegEventArgs e)
         {
             if (JpegRetrieved != null)
             {
                 JpegRetrieved(this, e);
+            }
+        }
+
+        public delegate void PlaybackInfoPacketHandler(object sender, PlaybackInfoEventArgs e);
+
+        public event PlaybackInfoPacketHandler PlaybackInfoRetrieved;
+
+        protected void OnPlaybackInfoRetrieved(PlaybackInfoEventArgs e)
+        {
+            if (PlaybackInfoRetrieved != null)
+            {
+                PlaybackInfoRetrieved(this, e);
             }
         }
 
@@ -67,14 +65,14 @@ namespace Kazyx.Liveview
                 throw new ArgumentNullException();
             }
 
-            if (state != State.Closed)
+            if (state != ConnectionState.Closed)
             {
                 return true;
             }
 
             var tcs = new TaskCompletionSource<bool>();
 
-            state = State.TryingConnection;
+            state = ConnectionState.TryingConnection;
 
             var to = (timeout == null) ? TimeSpan.FromMilliseconds(DEFAULT_REQUEST_TIMEOUT) : timeout;
 
@@ -85,7 +83,7 @@ namespace Kazyx.Liveview
 
             var streamHandler = new AsyncCallback((ar) =>
             {
-                state = State.Connected;
+                state = ConnectionState.Connected;
                 try
                 {
                     var req = ar.AsyncState as HttpWebRequest;
@@ -95,27 +93,28 @@ namespace Kazyx.Liveview
                         {
                             Log("Connected Jpeg stream");
                             tcs.TrySetResult(true);
-                            using (var str = response.GetResponseStream())
-                            {
-                                using (var core = new JpegStreamAnalizer(str))
-                                {
-                                    core.RunFpsDetector();
 
-                                    while (state == State.Connected)
+                            var str = response.GetResponseStream(); // Stream will be disposed inside JpegStreamAnalizer.
+                            using (var core = new StreamAnalizer(str))
+                            {
+                                core.RunFpsDetector();
+                                core.JpegRetrieved = (packet) => { OnJpegRetrieved(new JpegEventArgs(packet)); };
+                                core.PlaybackInfoRetrieved = (packet) => { OnPlaybackInfoRetrieved(new PlaybackInfoEventArgs(packet)); };
+
+                                while (state == ConnectionState.Connected)
+                                {
+                                    try
                                     {
-                                        try
-                                        {
-                                            OnJpegRetrieved(new JpegEventArgs(core.Next()));
-                                        }
-                                        catch (IOException)
-                                        {
-                                            Log("Caught IOException: finish reading loop");
-                                            break;
-                                        }
+                                        core.ReadNextPayload();
+                                    }
+                                    catch (Exception e)
+                                    {
+                                        Log("Caught " + e.GetType() + ": finish reading loop");
+                                        break;
                                     }
                                 }
-                                Log("End of reading loop");
                             }
+                            Log("End of reading loop");
                         }
                         else
                         {
@@ -155,7 +154,7 @@ namespace Kazyx.Liveview
         private async void StartTimer(int to, HttpWebRequest request)
         {
             await Task.Delay(to);
-            if (state == State.TryingConnection)
+            if (state == ConnectionState.TryingConnection)
             {
                 Log("Open request timeout: aborting request.");
                 request.Abort();
@@ -168,7 +167,7 @@ namespace Kazyx.Liveview
         public void CloseConnection()
         {
             Log("CloseConnection");
-            state = State.Closed;
+            state = ConnectionState.Closed;
         }
 
         private static void Log(string message)
@@ -177,7 +176,7 @@ namespace Kazyx.Liveview
         }
     }
 
-    internal enum State
+    public enum ConnectionState
     {
         Closed,
         TryingConnection,
@@ -186,16 +185,31 @@ namespace Kazyx.Liveview
 
     public class JpegEventArgs : EventArgs
     {
-        private readonly byte[] jpegData;
+        private readonly JpegPacket packet;
 
-        public JpegEventArgs(byte[] data)
+        public JpegEventArgs(JpegPacket packet)
         {
-            this.jpegData = data;
+            this.packet = packet;
         }
 
-        public byte[] JpegData
+        public JpegPacket Packet
         {
-            get { return jpegData; }
+            get { return packet; }
+        }
+    }
+
+    public class PlaybackInfoEventArgs : EventArgs
+    {
+        private readonly PlaybackInfoPacket packet;
+
+        public PlaybackInfoEventArgs(PlaybackInfoPacket packet)
+        {
+            this.packet = packet;
+        }
+
+        public PlaybackInfoPacket Packet
+        {
+            get { return packet; }
         }
     }
 }
