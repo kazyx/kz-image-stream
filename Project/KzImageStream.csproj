@@ -84,6 +84,8 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="FocusFramePacket.cs" />
+    <Compile Include="FocusInfo\FocusInfocs.cs" />
     <Compile Include="JpegPacket.cs" />
     <Compile Include="PlaybackInfoPacket.cs" />
     <Compile Include="StreamProcessor.cs" />

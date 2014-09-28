@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Kazyx.ImageStream.FocusInfo;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -28,6 +29,16 @@ namespace Kazyx.ImageStream
             if (JpegRetrieved != null)
             {
                 JpegRetrieved.Invoke(packet);
+            }
+        }
+
+        internal Action<FocusFramePacket> FocusFrameRetrieved;
+
+        protected void OnFrameInfoRetrieved(FocusFramePacket packet)
+        {
+            if (FocusFrameRetrieved != null)
+            {
+                FocusFrameRetrieved(packet);
             }
         }
 
@@ -67,6 +78,7 @@ namespace Kazyx.ImageStream
             }
             JpegRetrieved = null;
             PlaybackInfoRetrieved = null;
+            FocusFrameRetrieved = null;
         }
 
         private const int FPS_INTERVAL = 5000;
@@ -90,7 +102,7 @@ namespace Kazyx.ImageStream
         internal void ReadNextPayload()
         {
             var CHeader = StreamHelper.ReadBytes(stream, CHeaderLength, ReadBuffer, () => { return IsOpen; });
-            if (CHeader[0] != (byte)0xFF || CHeader[1] != (byte)0x01) // Check fixed data
+            if (CHeader[0] != (byte)0xFF) // Check fixed data
             {
                 Log("Unexpected common header");
                 throw new IOException("Unexpected common header");
@@ -101,6 +113,9 @@ namespace Kazyx.ImageStream
                 case (byte)0x01: // Liveview stream.
                 case (byte)0x11: // Movie playback stream.
                     ReadImagePacket();
+                    break;
+                case (byte)0x02:
+                    ReadFocusFramePacket();
                     break;
                 case (byte)0x12: // Movie playback information.
                     ReadPlaybackInformationPacket();
@@ -137,6 +152,57 @@ namespace Kazyx.ImageStream
             packet_counter++;
 
             OnJpegRetrieved(packet);
+        }
+
+        private const int FrameInfoV1PayloadLength = 16;
+
+        private void ReadFocusFramePacket()
+        {
+            var PHeader = StreamHelper.ReadBytes(stream, PHeaderLength, ReadBuffer, () => { return IsOpen; });
+            if (PHeader[0] != (byte)0x24 || PHeader[1] != (byte)0x35 || PHeader[2] != (byte)0x68 || PHeader[3] != (byte)0x79) // Check fixed data
+            {
+                Log("Unexpected payload header");
+                throw new IOException("Unexpected payload header");
+            }
+
+            var data_size = StreamHelper.AsInteger(PHeader, 4, 3);
+            var padding_size = StreamHelper.AsInteger(PHeader, 7, 1);
+
+            if (PHeader[8] != (byte)0x01 || PHeader[9] != (byte)0x00) // Only v1.0 is supported.
+            {
+                StreamHelper.ReadBytes(stream, data_size, ReadBuffer, () => { return IsOpen; });
+                StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
+                return;
+            }
+
+            var count = StreamHelper.AsInteger(PHeader, 10, 2);
+            var size = StreamHelper.AsInteger(PHeader, 12, 2);
+            if (size != FrameInfoV1PayloadLength)
+            {
+                StreamHelper.ReadBytes(stream, size, ReadBuffer, () => { return IsOpen; });
+                StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
+                return;
+            }
+
+            var payload = StreamHelper.ReadBytes(stream, size, ReadBuffer, () => { return IsOpen; });
+            if (payload.Length != FrameInfoV1PayloadLength)
+            {
+                StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
+                return;
+            }
+
+            StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
+
+            OnFrameInfoRetrieved(new FocusFramePacket
+            {
+                TopLeft_X = StreamHelper.AsInteger(payload, 0, 2),
+                TopLeft_Y = StreamHelper.AsInteger(payload, 2, 2),
+                BottomRight_X = StreamHelper.AsInteger(payload, 4, 2),
+                BottomRight_Y = StreamHelper.AsInteger(payload, 6, 2),
+                Category = (Category)payload[8],
+                Status = (Status)payload[9],
+                AdditionalStatus = (AdditionalStatus)payload[10]
+            });
         }
 
         private const int PlaybackInfoLength = 32;

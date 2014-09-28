@@ -39,6 +39,18 @@ namespace Kazyx.ImageStream
             }
         }
 
+        public delegate void FocusFramePacketHandler(object sender, FocusFrameEventArgs e);
+
+        public event FocusFramePacketHandler FocusFrameRetrieved;
+
+        protected void OnFocusFrameRetrieved(FocusFrameEventArgs e)
+        {
+            if (FocusFrameRetrieved != null)
+            {
+                FocusFrameRetrieved(this, e);
+            }
+        }
+
         public delegate void PlaybackInfoPacketHandler(object sender, PlaybackInfoEventArgs e);
 
         public event PlaybackInfoPacketHandler PlaybackInfoRetrieved;
@@ -100,6 +112,7 @@ namespace Kazyx.ImageStream
                                 core.RunFpsDetector();
                                 core.JpegRetrieved = (packet) => { OnJpegRetrieved(new JpegEventArgs(packet)); };
                                 core.PlaybackInfoRetrieved = (packet) => { OnPlaybackInfoRetrieved(new PlaybackInfoEventArgs(packet)); };
+                                core.FocusFrameRetrieved = (packet) => { OnFocusFrameRetrieved(new FocusFrameEventArgs(packet)); };
 
                                 while (state == ConnectionState.Connected)
                                 {
@@ -193,6 +206,21 @@ namespace Kazyx.ImageStream
         }
 
         public JpegPacket Packet
+        {
+            get { return packet; }
+        }
+    }
+
+    public class FocusFrameEventArgs : EventArgs
+    {
+        private readonly FocusFramePacket packet;
+
+        public FocusFrameEventArgs(FocusFramePacket packet)
+        {
+            this.packet = packet;
+        }
+
+        public FocusFramePacket Packet
         {
             get { return packet; }
         }
