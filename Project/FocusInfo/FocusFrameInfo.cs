@@ -29,4 +29,16 @@ namespace Kazyx.ImageStream.FocusInfo
         Selected = 0x01,
         LargeFrame = 0x02,
     }
+
+    public class FocusFrameInfo
+    {
+        public int TopLeft_X { internal set; get; }
+        public int TopLeft_Y { internal set; get; }
+        public int BottomRight_X { internal set; get; }
+        public int BottomRight_Y { internal set; get; }
+
+        public Category Category { internal set; get; }
+        public Status Status { internal set; get; }
+        public AdditionalStatus AdditionalStatus { internal set; get; }
+    }
 }

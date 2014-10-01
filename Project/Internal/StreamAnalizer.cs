@@ -1,5 +1,6 @@
 ﻿using Kazyx.ImageStream.FocusInfo;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -177,31 +178,36 @@ namespace Kazyx.ImageStream
 
             var count = StreamHelper.AsInteger(PHeader, 10, 2);
             var size = StreamHelper.AsInteger(PHeader, 12, 2);
-            if (size != FrameInfoV1PayloadLength)
-            {
-                StreamHelper.ReadBytes(stream, size, ReadBuffer, () => { return IsOpen; });
-                StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
-                return;
-            }
 
-            var payload = StreamHelper.ReadBytes(stream, size, ReadBuffer, () => { return IsOpen; });
+            var payload = StreamHelper.ReadBytes(stream, data_size, ReadBuffer, () => { return IsOpen; });
             if (payload.Length != FrameInfoV1PayloadLength)
             {
                 StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
                 return;
             }
 
+            var squares = new List<FocusFrameInfo>();
+            for (var i = 0; i < count; i++)
+            {
+                var offset = i * size;
+                var position = new FocusFrameInfo
+                {
+                    TopLeft_X = StreamHelper.AsInteger(payload, offset, 2),
+                    TopLeft_Y = StreamHelper.AsInteger(payload, offset + 2, 2),
+                    BottomRight_X = StreamHelper.AsInteger(payload, offset + 4, 2),
+                    BottomRight_Y = StreamHelper.AsInteger(payload, offset + 6, 2),
+                    Category = (Category)payload[offset + 8],
+                    Status = (Status)payload[offset + 9],
+                    AdditionalStatus = (AdditionalStatus)payload[offset + 10]
+                };
+                squares.Add(position);
+            }
+
             StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
 
             OnFrameInfoRetrieved(new FocusFramePacket
             {
-                TopLeft_X = StreamHelper.AsInteger(payload, 0, 2),
-                TopLeft_Y = StreamHelper.AsInteger(payload, 2, 2),
-                BottomRight_X = StreamHelper.AsInteger(payload, 4, 2),
-                BottomRight_Y = StreamHelper.AsInteger(payload, 6, 2),
-                Category = (Category)payload[8],
-                Status = (Status)payload[9],
-                AdditionalStatus = (AdditionalStatus)payload[10]
+                SquarePositions = squares
             });
         }
 
