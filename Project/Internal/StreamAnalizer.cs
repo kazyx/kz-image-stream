@@ -207,7 +207,7 @@ namespace Kazyx.ImageStream
 
             OnFrameInfoRetrieved(new FocusFramePacket
             {
-                SquarePositions = squares
+                FocusFrames = squares
             });
         }
 

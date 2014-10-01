@@ -5,6 +5,6 @@ namespace Kazyx.ImageStream
 {
     public class FocusFramePacket
     {
-        public List<FocusFrameInfo> SquarePositions { internal set; get; }
+        public List<FocusFrameInfo> FocusFrames { internal set; get; }
     }
 }
