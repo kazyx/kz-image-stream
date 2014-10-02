@@ -109,25 +109,6 @@ namespace Kazyx.ImageStream
                 throw new IOException("Unexpected common header");
             }
 
-            switch (cHeader[1])
-            {
-                case (byte)0x01: // Liveview stream.
-                case (byte)0x11: // Movie playback stream.
-                    ReadImagePacket();
-                    break;
-                case (byte)0x02: // Focus frame information.
-                    ReadFocusFramePacket();
-                    break;
-                case (byte)0x12: // Movie playback information.
-                    ReadPlaybackInformationPacket();
-                    break;
-                default:
-                    throw new IOException("Unsupported payload type: " + cHeader[1]);
-            }
-        }
-
-        private void ReadImagePacket()
-        {
             var pHeader = StreamHelper.ReadBytes(stream, PHeaderLength, ReadBuffer, () => { return IsOpen; });
             if (pHeader[0] != (byte)0x24 || pHeader[1] != (byte)0x35 || pHeader[2] != (byte)0x68 || pHeader[3] != (byte)0x79) // Check fixed data
             {
@@ -137,11 +118,32 @@ namespace Kazyx.ImageStream
 
             var data_size = StreamHelper.AsInteger(pHeader, 4, 3);
             var padding_size = StreamHelper.AsInteger(pHeader, 7, 1);
-            var width = StreamHelper.AsInteger(pHeader, 8, 2);
-            var height = StreamHelper.AsInteger(pHeader, 10, 2);
 
             var payload = StreamHelper.ReadBytes(stream, data_size, ReadBuffer, () => { return IsOpen; });
             StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
+
+            switch (cHeader[1])
+            {
+                case (byte)0x01: // Liveview stream.
+                case (byte)0x11: // Movie playback stream.
+                    ReadImagePacket(pHeader, payload);
+                    break;
+                case (byte)0x02: // Focus frame information.
+                    ReadFocusFramePacket(pHeader, payload);
+                    break;
+                case (byte)0x12: // Movie playback information.
+                    ReadPlaybackInformationPacket(pHeader, payload);
+                    break;
+                default:
+                    Log("Unsupported payload type: " + cHeader[1]);
+                    return;
+            }
+        }
+
+        private void ReadImagePacket(byte[] pHeader, byte[] payload)
+        {
+            var width = StreamHelper.AsInteger(pHeader, 8, 2);
+            var height = StreamHelper.AsInteger(pHeader, 10, 2);
 
             var packet = new JpegPacket
             {
@@ -155,29 +157,15 @@ namespace Kazyx.ImageStream
             OnJpegRetrieved(packet);
         }
 
-        private void ReadFocusFramePacket()
+        private void ReadFocusFramePacket(byte[] pHeader, byte[] payload)
         {
-            var pHeader = StreamHelper.ReadBytes(stream, PHeaderLength, ReadBuffer, () => { return IsOpen; });
-            if (pHeader[0] != (byte)0x24 || pHeader[1] != (byte)0x35 || pHeader[2] != (byte)0x68 || pHeader[3] != (byte)0x79) // Check fixed data
-            {
-                Log("Unexpected payload header");
-                throw new IOException("Unexpected payload header");
-            }
-
-            var data_size = StreamHelper.AsInteger(pHeader, 4, 3);
-            var padding_size = StreamHelper.AsInteger(pHeader, 7, 1);
-
             if (pHeader[8] != (byte)0x01 || pHeader[9] != (byte)0x00) // Only v1.0 is supported.
             {
-                StreamHelper.ReadBytes(stream, data_size, ReadBuffer, () => { return IsOpen; });
-                StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
                 return;
             }
 
             var count = StreamHelper.AsInteger(pHeader, 10, 2);
             var size = StreamHelper.AsInteger(pHeader, 12, 2);
-
-            var payload = StreamHelper.ReadBytes(stream, data_size, ReadBuffer, () => { return IsOpen; });
 
             var squares = new List<FocusFrameInfo>();
             for (var i = 0; i < count; i++)
@@ -196,50 +184,30 @@ namespace Kazyx.ImageStream
                 squares.Add(position);
             }
 
-            StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
-
             OnFrameInfoRetrieved(new FocusFramePacket
             {
                 FocusFrames = squares
             });
         }
 
-        private void ReadPlaybackInformationPacket()
+        private void ReadPlaybackInformationPacket(byte[] pHeader, byte[] payload)
         {
-            var pHeader = StreamHelper.ReadBytes(stream, PHeaderLength, ReadBuffer, () => { return IsOpen; });
-            if (pHeader[0] != (byte)0x24 || pHeader[1] != (byte)0x35 || pHeader[2] != (byte)0x68 || pHeader[3] != (byte)0x79) // Check fixed data
-            {
-                Log("Unexpected payload header");
-                throw new IOException("Unexpected payload header");
-            }
-
-            var data_size = StreamHelper.AsInteger(pHeader, 4, 3);
-            var padding_size = StreamHelper.AsInteger(pHeader, 7, 1);
-
             var major = StreamHelper.AsInteger(pHeader, 8, 1);
             var minor = StreamHelper.AsInteger(pHeader, 9, 1);
 
             if (major != 1 || minor != 0) // Only v1.0 is supported.
             {
-                StreamHelper.ReadBytes(stream, data_size, ReadBuffer, () => { return IsOpen; });
-                StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
                 return;
             }
-
-            var payload = StreamHelper.ReadBytes(stream, data_size, ReadBuffer, () => { return IsOpen; });
 
             var duration = StreamHelper.AsInteger(payload, 0, 4);
             var position = StreamHelper.AsInteger(payload, 4, 4);
 
-            var info = new PlaybackInfoPacket()
+            OnPlaybackInfo(new PlaybackInfoPacket()
             {
                 Duration = TimeSpan.FromMilliseconds(duration),
                 CurrentPosition = TimeSpan.FromMilliseconds(position)
-            };
-
-            StreamHelper.ReadBytes(stream, padding_size, ReadBuffer, () => { return IsOpen; }); // discard padding from stream
-
-            OnPlaybackInfo(info);
+            });
         }
 
         private static void Log(string message)
