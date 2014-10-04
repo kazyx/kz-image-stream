@@ -1,12 +1,12 @@
-KzImageStream
+kz-image-stream
 ==========
 - Image stream processor for Sony camera devices.
-- Analyze [JPEG image stream from Sony camera devices](https://developer.sony.com/develop/cameras/) and provide picture frames as Events.
+- Analyze [Image stream from Sony camera devices](https://developer.sony.com/develop/cameras/) and provide picture frames as Events.
 
 ##Build
 1. Clone repository.
  ``` bash
- git clone git@github.com:kazyx/KzImageStream.git
+ git clone git@github.com:kazyx/kz-image-stream.git
  ```
 
 2. Open csproj file by Visual Studio.
@@ -15,7 +15,7 @@ KzImageStream
 
 ##Get JPEG frame data from Liveview stream.
 1. Obtain URL of liveview image stream by calling startLiveview API.
-See [KzRemoteApi](https://github.com/kazyx/KzRemoteApi).
+See [kz-remote-api](https://github.com/kazyx/kz-remote-api).
  ``` cs
  var url = await camera.StartLiveviewAsync();
  ```
@@ -31,7 +31,7 @@ See [KzRemoteApi](https://github.com/kazyx/KzRemoteApi).
 
 3. Open connection.
  ``` cs
- processor.OpenConnection(new Uri(url);
+ processor.OpenConnection(new Uri(url));
  ```
 
 ##License
