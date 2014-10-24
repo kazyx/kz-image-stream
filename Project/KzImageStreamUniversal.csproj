@@ -41,6 +41,8 @@
     <TargetPlatform Include="Windows, Version=8.1" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FocusFramePacket.cs" />
+    <Compile Include="FocusInfo\FocusFrameInfo.cs" />
     <Compile Include="Internal\StreamAnalizer.cs" />
     <Compile Include="Internal\StreamHelper.cs" />
     <Compile Include="JpegPacket.cs" />
