@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 #if WINDOWS_PHONE_APP||WINDOWS_APP
 using Windows.Web.Http;
+using Windows.Web.Http.Filters;
 #else
 using System.Net;
 #endif
@@ -81,7 +82,11 @@ namespace Kazyx.ImageStream
             }
 
             state = ConnectionState.TryingConnection;
-            var httpClient = new HttpClient();
+
+            var filter = new HttpBaseProtocolFilter();
+            filter.CacheControl.ReadBehavior = HttpCacheReadBehavior.MostRecent;
+
+            var httpClient = new HttpClient(filter);
 
             var to = (timeout == null) ? TimeSpan.FromMilliseconds(DEFAULT_REQUEST_TIMEOUT) : timeout;
             StartTimer((int)to.Value.TotalMilliseconds, httpClient);
