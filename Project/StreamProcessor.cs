@@ -118,6 +118,7 @@ namespace Kazyx.ImageStream
                         }
                     }
                     Log("End of reading loop");
+                    OnClosed(null);
                 });
                 return true;
             }
