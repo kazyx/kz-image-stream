@@ -1,8 +1,13 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Net;
 using System.Threading.Tasks;
+#if WINDOWS_PHONE_APP||WINDOWS_APP
+using Windows.Web.Http;
+using Windows.Web.Http.Filters;
+#else
+using System.Net;
+#endif
 
 namespace Kazyx.ImageStream
 {
@@ -63,6 +68,83 @@ namespace Kazyx.ImageStream
             }
         }
 
+#if WINDOWS_PHONE_APP||WINDOWS_APP
+        public async Task<bool> OpenConnection(Uri uri, TimeSpan? timeout = null)
+        {
+            if (uri == null)
+            {
+                throw new ArgumentNullException();
+            }
+
+            if (state != ConnectionState.Closed)
+            {
+                return true;
+            }
+
+            state = ConnectionState.TryingConnection;
+
+            var filter = new HttpBaseProtocolFilter();
+            filter.CacheControl.ReadBehavior = HttpCacheReadBehavior.MostRecent;
+
+            var httpClient = new HttpClient(filter);
+
+            var to = (timeout == null) ? TimeSpan.FromMilliseconds(DEFAULT_REQUEST_TIMEOUT) : timeout;
+            StartTimer((int)to.Value.TotalMilliseconds, httpClient);
+
+            try
+            {
+                var str = await httpClient.GetInputStreamAsync(uri);
+                state = ConnectionState.Connected;
+                Task.Factory.StartNew(() =>
+                {
+                    using (var core = new StreamAnalizer(str.AsStreamForRead()))
+                    {
+                        core.RunFpsDetector();
+                        core.JpegRetrieved = (packet) => { OnJpegRetrieved(new JpegEventArgs(packet)); };
+                        core.PlaybackInfoRetrieved = (packet) => { OnPlaybackInfoRetrieved(new PlaybackInfoEventArgs(packet)); };
+                        core.FocusFrameRetrieved = (packet) => { OnFocusFrameRetrieved(new FocusFrameEventArgs(packet)); };
+
+                        while (state == ConnectionState.Connected)
+                        {
+                            try
+                            {
+                                core.ReadNextPayload();
+                            }
+                            catch (Exception e)
+                            {
+                                Log("Caught " + e.GetType() + ": finish reading loop");
+                                break;
+                            }
+                        }
+                    }
+                    Log("End of reading loop");
+                    OnClosed(null);
+                });
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        private async void StartTimer(int to, HttpClient client)
+        {
+            await Task.Delay(to);
+            if (state == ConnectionState.TryingConnection)
+            {
+                Log("Open request timeout: aborting request.");
+                try
+                {
+                    client.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                    Log("Caught ObjectDisposedException");
+                }
+            }
+        }
+#else
         /// <summary>
         /// Open stream connection for Liveview.
         /// </summary>
@@ -173,6 +255,7 @@ namespace Kazyx.ImageStream
                 request.Abort();
             }
         }
+#endif
 
         /// <summary>
         /// Forcefully close this connection.
