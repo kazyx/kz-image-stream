@@ -10,8 +10,9 @@ kz-image-stream
  ```
 
 2. Open csproj file by Visual Studio.
- - /Project/KzImageStream.csproj for Windows Phone 8.
+ - /Project/KzImageStreamPhone8.csproj for Windows Phone 8.
  - /Project/KzImageStreamUniversal.csproj for Universal Windows application.
+ - /Project/KzImageStreamDesktop.csproj for Desktop Windows application. (.Net framework 4.5)
 
 ##Get JPEG frame data from Liveview stream.
 1. Obtain URL of liveview image stream by calling startLiveview API.
