@@ -10,7 +10,6 @@ kz-image-stream
  ```
 
 2. Open csproj file by Visual Studio.
- - /Project/KzImageStreamPhone8.csproj for Windows Phone 8.
  - /Project/KzImageStreamUniversal.csproj for Universal Windows application.
  - /Project/KzImageStreamDesktop.csproj for Desktop Windows application. (.Net framework 4.5)
 

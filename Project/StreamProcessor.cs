@@ -7,6 +7,8 @@ using Windows.Web.Http;
 using Windows.Web.Http.Filters;
 #else
 using System.Net;
+using System.Net.Http;
+using System.Net.Cache;
 #endif
 
 namespace Kazyx.ImageStream
@@ -68,7 +70,6 @@ namespace Kazyx.ImageStream
             }
         }
 
-#if WINDOWS_PHONE_APP||WINDOWS_APP
         public async Task<bool> OpenConnection(Uri uri, TimeSpan? timeout = null)
         {
             if (uri == null)
@@ -83,21 +84,36 @@ namespace Kazyx.ImageStream
 
             state = ConnectionState.TryingConnection;
 
+#if WINDOWS_PHONE_APP||WINDOWS_APP
             var filter = new HttpBaseProtocolFilter();
             filter.CacheControl.ReadBehavior = HttpCacheReadBehavior.MostRecent;
 
             var httpClient = new HttpClient(filter);
+#else
+            var httpClient = new HttpClient(new WebRequestHandler
+            {
+                CachePolicy = new HttpRequestCachePolicy(HttpRequestCacheLevel.NoCacheNoStore),
+            });
+#endif
 
             var to = (timeout == null) ? TimeSpan.FromMilliseconds(DEFAULT_REQUEST_TIMEOUT) : timeout;
             StartTimer((int)to.Value.TotalMilliseconds, httpClient);
 
             try
             {
+#if WINDOWS_PHONE_APP||WINDOWS_APP
                 var str = await httpClient.GetInputStreamAsync(uri);
+#else
+                var str = await httpClient.GetStreamAsync(uri);
+#endif
                 state = ConnectionState.Connected;
                 Task.Factory.StartNew(() =>
                 {
+#if WINDOWS_PHONE_APP||WINDOWS_APP
                     using (var core = new StreamAnalizer(str.AsStreamForRead()))
+#else
+                    using (var core = new StreamAnalizer(str))
+#endif
                     {
                         core.RunFpsDetector();
                         core.JpegRetrieved = (packet) => { OnJpegRetrieved(new JpegEventArgs(packet)); };
@@ -144,118 +160,6 @@ namespace Kazyx.ImageStream
                 }
             }
         }
-#else
-        /// <summary>
-        /// Open stream connection for Liveview.
-        /// </summary>
-        /// <param name="uri">URL to get liveview stream.</param>
-        /// <param name="timeout">Timeout to give up establishing connection.</param>
-        /// <returns>Connection status as a result. Connected or failed.</returns>
-        public async Task<bool> OpenConnection(Uri uri, TimeSpan? timeout = null)
-        {
-            Log("OpenConnection");
-            if (uri == null)
-            {
-                throw new ArgumentNullException();
-            }
-
-            if (state != ConnectionState.Closed)
-            {
-                return true;
-            }
-
-            var tcs = new TaskCompletionSource<bool>();
-
-            state = ConnectionState.TryingConnection;
-
-            var to = (timeout == null) ? TimeSpan.FromMilliseconds(DEFAULT_REQUEST_TIMEOUT) : timeout;
-
-            var request = HttpWebRequest.Create(uri) as HttpWebRequest;
-            request.Method = "GET";
-            request.AllowReadStreamBuffering = false;
-            // request.Headers["Connection"] = "close";
-
-            var streamHandler = new AsyncCallback((ar) =>
-            {
-                state = ConnectionState.Connected;
-                try
-                {
-                    var req = ar.AsyncState as HttpWebRequest;
-                    using (var response = req.EndGetResponse(ar) as HttpWebResponse)
-                    {
-                        if (response.StatusCode == HttpStatusCode.OK)
-                        {
-                            Log("Connected Jpeg stream");
-                            tcs.TrySetResult(true);
-
-                            var str = response.GetResponseStream(); // Stream will be disposed inside JpegStreamAnalizer.
-                            using (var core = new StreamAnalizer(str))
-                            {
-                                core.RunFpsDetector();
-                                core.JpegRetrieved = (packet) => { OnJpegRetrieved(new JpegEventArgs(packet)); };
-                                core.PlaybackInfoRetrieved = (packet) => { OnPlaybackInfoRetrieved(new PlaybackInfoEventArgs(packet)); };
-                                core.FocusFrameRetrieved = (packet) => { OnFocusFrameRetrieved(new FocusFrameEventArgs(packet)); };
-
-                                while (state == ConnectionState.Connected)
-                                {
-                                    try
-                                    {
-                                        core.ReadNextPayload();
-                                    }
-                                    catch (Exception e)
-                                    {
-                                        Log("Caught " + e.GetType() + ": finish reading loop");
-                                        break;
-                                    }
-                                }
-                            }
-                            Log("End of reading loop");
-                        }
-                        else
-                        {
-                            tcs.TrySetResult(false);
-                        }
-                    }
-                    req.Abort();
-                }
-                catch (WebException)
-                {
-                    Log("WebException inside StreamingHandler.");
-                    tcs.TrySetResult(false);
-                }
-                catch (ObjectDisposedException)
-                {
-                    Log("Caught ObjectDisposedException inside StreamingHandler.");
-                }
-                catch (IOException)
-                {
-                    Log("Caught IOException inside StreamingHandler.");
-                }
-                finally
-                {
-                    Log("Disconnected Jpeg stream");
-                    CloseConnection();
-                    OnClosed(new EventArgs());
-                }
-            });
-
-            request.BeginGetResponse(streamHandler, request);
-
-            StartTimer((int)to.Value.TotalMilliseconds, request);
-
-            return await tcs.Task;
-        }
-
-        private async void StartTimer(int to, HttpWebRequest request)
-        {
-            await Task.Delay(to);
-            if (state == ConnectionState.TryingConnection)
-            {
-                Log("Open request timeout: aborting request.");
-                request.Abort();
-            }
-        }
-#endif
 
         /// <summary>
         /// Forcefully close this connection.
