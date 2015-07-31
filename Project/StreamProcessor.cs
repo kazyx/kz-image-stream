@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
-#if WINDOWS_PHONE_APP||WINDOWS_APP
+#if WINDOWS_PHONE_APP||WINDOWS_APP||NETFX_CORE
 using Windows.Web.Http;
 using Windows.Web.Http.Filters;
 #else
@@ -84,7 +84,7 @@ namespace Kazyx.ImageStream
 
             state = ConnectionState.TryingConnection;
 
-#if WINDOWS_PHONE_APP||WINDOWS_APP
+#if WINDOWS_PHONE_APP||WINDOWS_APP||NETFX_CORE
             var filter = new HttpBaseProtocolFilter();
             filter.CacheControl.ReadBehavior = HttpCacheReadBehavior.MostRecent;
 
@@ -101,15 +101,15 @@ namespace Kazyx.ImageStream
 
             try
             {
-#if WINDOWS_PHONE_APP||WINDOWS_APP
+#if WINDOWS_PHONE_APP||WINDOWS_APP||NETFX_CORE
                 var str = await httpClient.GetInputStreamAsync(uri);
 #else
                 var str = await httpClient.GetStreamAsync(uri);
 #endif
                 state = ConnectionState.Connected;
-                Task.Factory.StartNew(() =>
+                var task = Task.Factory.StartNew(() =>
                 {
-#if WINDOWS_PHONE_APP||WINDOWS_APP
+#if WINDOWS_PHONE_APP||WINDOWS_APP||NETFX_CORE
                     using (var core = new StreamAnalizer(str.AsStreamForRead()))
 #else
                     using (var core = new StreamAnalizer(str))
