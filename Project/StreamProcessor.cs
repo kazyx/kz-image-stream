@@ -172,8 +172,15 @@ namespace Kazyx.ImageStream
 
         private static void Log(string message)
         {
-            Debug.WriteLine("[LvProcessor] " + message);
+            Log("LvProcessor", message);
         }
+
+        internal static void Log(string tag, string message)
+        {
+            Logger?.Invoke(string.Format("[{0}] {1}", tag, message));
+        }
+
+        public static Action<string> Logger { set; get; } = (s) => Debug.WriteLine(s);
     }
 
     public enum ConnectionState

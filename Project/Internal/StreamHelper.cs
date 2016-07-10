@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using System.IO;
 
 namespace Kazyx.ImageStream
@@ -77,7 +76,7 @@ namespace Kazyx.ImageStream
 
         private static void Log(string message)
         {
-            Debug.WriteLine("[JpegStreamAnalizer] " + message);
+            StreamProcessor.Log("JpegStreamAnalizer", message);
         }
     }
 }

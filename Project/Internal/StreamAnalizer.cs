@@ -1,7 +1,6 @@
 ﻿using Kazyx.ImageStream.FocusInfo;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -212,7 +211,7 @@ namespace Kazyx.ImageStream
 
         private static void Log(string message)
         {
-            Debug.WriteLine("[JpegStreamAnalizer] " + message);
+            StreamProcessor.Log("JpegStreamAnalizer", message);
         }
     }
 }
